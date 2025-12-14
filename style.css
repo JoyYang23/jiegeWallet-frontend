@@ -553,56 +553,6 @@ div:where(.swal2-container) div:where(.swal2-popup) {
   text-align: left;
 }
 
-.voice-control {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 4px 0 12px;
-}
-
-.voice-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
-  border-radius: 999px;
-  border: none;
-  background: var(--primary-yellow);
-  color: var(--text-color);
-  font-weight: 700;
-  cursor: pointer;
-  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.05);
-  transition: transform 0.1s, box-shadow 0.1s, background 0.2s;
-}
-
-.voice-btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 0 rgba(0, 0, 0, 0.05);
-}
-
-.voice-btn:disabled,
-.voice-btn.disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  box-shadow: none;
-}
-
-.voice-btn.listening {
-  background: var(--primary-blue);
-  color: white;
-  box-shadow: 0 6px 0 rgba(0, 0, 0, 0.08);
-}
-
-.voice-status {
-  font-size: 0.9rem;
-  color: var(--text-light);
-}
-
-.voice-status.error {
-  color: var(--primary-red);
-  font-weight: 700;
-}
-
 .swal2-input, .swal2-select {
   width: 100% !important;
   margin: 0 0 16px !important;
