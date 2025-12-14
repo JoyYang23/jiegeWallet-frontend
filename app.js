@@ -909,17 +909,18 @@ function parseVoiceInput(transcript, categoryList = []) {
     "g"
   );
 
-  const cleanedNote = normalized
+  const cleanedNote = transcript
     .replace(/前天|昨天|今天|明天/g, "")
     .replace(amountMatch ? amountMatch[1] : "", "")
     .replace(/[元圓圆塊块錢钱]/g, "")
     .replace(keywordPattern, "")
+    .replace(/\s{2,}/g, " ")
     .trim();
   if (cleanedNote) {
     result.note = cleanedNote;
   }
 
-  const normalizedNote = cleanedNote || normalized;
+  const normalizedNote = (cleanedNote || transcript).replace(/\s+/g, "");
   const matchedCategory = categoryList.find((cat) => {
     const name = (cat.name || "").replace(/\s+/g, "");
     return name && (normalizedNote.includes(name) || normalized.includes(name));
