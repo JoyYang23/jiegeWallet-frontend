@@ -290,6 +290,13 @@ async function openAddTransactionModal() {
   const { value: formValues } = await Swal.fire({
     title: "記一筆",
     html: `
+      <div class="voice-control">
+        <button type="button" id="swal-voice-btn" class="voice-btn">
+          <span class="voice-icon">🎤</span>
+          <span>語音輸入</span>
+        </button>
+        <span id="swal-voice-status" class="voice-status" aria-live="polite">點擊開始說話</span>
+      </div>
       <form id="swal-txn-form" class="swal-form">
         <div class="form-group">
           <label>項目名稱</label>
@@ -323,6 +330,17 @@ async function openAddTransactionModal() {
     confirmButtonText: "記帳！",
     cancelButtonText: "算了",
     confirmButtonColor: "#5abf98",
+    didOpen: () => {
+      setupVoiceInput({
+        noteInputId: "swal-note",
+        categorySelectId: "swal-category",
+        amountInputId: "swal-amount",
+        typeSelectId: "swal-type",
+        dateInputId: "swal-date",
+        buttonId: "swal-voice-btn",
+        statusId: "swal-voice-status",
+      });
+    },
     preConfirm: () => {
       return {
         date: document.getElementById("swal-date").value,
@@ -522,6 +540,13 @@ window.editTransaction = async function (id) {
   const { value: formValues } = await Swal.fire({
     title: "編輯記帳",
     html: `
+      <div class="voice-control">
+        <button type="button" id="swal-voice-btn" class="voice-btn">
+          <span class="voice-icon">🎤</span>
+          <span>語音輸入</span>
+        </button>
+        <span id="swal-voice-status" class="voice-status" aria-live="polite">點擊開始說話</span>
+      </div>
       <form id="swal-txn-form" class="swal-form">
         <div class="form-group">
           <label>項目名稱</label>
@@ -565,6 +590,17 @@ window.editTransaction = async function (id) {
     confirmButtonText: "儲存",
     cancelButtonText: "取消",
     confirmButtonColor: "#5abf98",
+    didOpen: () => {
+      setupVoiceInput({
+        noteInputId: "swal-note",
+        categorySelectId: "swal-category",
+        amountInputId: "swal-amount",
+        typeSelectId: "swal-type",
+        dateInputId: "swal-date",
+        buttonId: "swal-voice-btn",
+        statusId: "swal-voice-status",
+      });
+    },
     preConfirm: () => {
       return {
         date: document.getElementById("swal-date").value,
@@ -688,6 +724,211 @@ async function init() {
   } else {
     showLanding();
   }
+}
+
+function setupVoiceInput({
+  noteInputId,
+  categorySelectId,
+  amountInputId,
+  typeSelectId,
+  dateInputId,
+  buttonId,
+  statusId,
+}) {
+  const noteInput = document.getElementById(noteInputId);
+  const voiceBtn = document.getElementById(buttonId);
+  const statusEl = document.getElementById(statusId);
+  const categorySelect = categorySelectId
+    ? document.getElementById(categorySelectId)
+    : null;
+  const amountInput = amountInputId
+    ? document.getElementById(amountInputId)
+    : null;
+  const typeSelect = typeSelectId
+    ? document.getElementById(typeSelectId)
+    : null;
+  const dateInput = dateInputId ? document.getElementById(dateInputId) : null;
+
+  if (!noteInput || !voiceBtn || !statusEl) return;
+
+  const SpeechRecognition =
+    window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  if (!SpeechRecognition) {
+    statusEl.textContent = "瀏覽器不支援語音輸入";
+    voiceBtn.disabled = true;
+    voiceBtn.classList.add("disabled");
+    return;
+  }
+
+  const recognition = new SpeechRecognition();
+  recognition.lang = "zh-TW";
+  recognition.interimResults = false;
+  recognition.continuous = false;
+
+  let isListening = false;
+
+  const updateStatus = (text, isError = false) => {
+    statusEl.textContent = text;
+    statusEl.classList.toggle("error", isError);
+  };
+
+  voiceBtn.addEventListener("click", () => {
+    if (isListening) {
+      recognition.stop();
+      return;
+    }
+
+    try {
+      recognition.start();
+    } catch (error) {
+      // 防止連續觸發 start 造成錯誤
+    }
+  });
+
+  recognition.onstart = () => {
+    isListening = true;
+    voiceBtn.classList.add("listening");
+    updateStatus("聆聽中...");
+  };
+
+  recognition.onresult = (event) => {
+    isListening = false;
+    voiceBtn.classList.remove("listening");
+    const transcript = event.results[0][0].transcript.trim();
+    if (transcript) {
+      const parsed = parseVoiceInput(transcript, categories);
+
+      if (parsed.note && noteInput) {
+        noteInput.value = parsed.note;
+        noteInput.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+
+      if (parsed.categoryId && categorySelect) {
+        categorySelect.value = parsed.categoryId;
+      }
+
+      if (parsed.amount && amountInput) {
+        amountInput.value = parsed.amount;
+      }
+
+      if (parsed.type && typeSelect) {
+        typeSelect.value = parsed.type;
+      }
+
+      if (parsed.date && dateInput) {
+        dateInput.value = parsed.date;
+      }
+
+      updateStatus("已填入語音內容");
+    } else {
+      updateStatus("未聽到內容，請再試一次", true);
+    }
+  };
+
+  recognition.onerror = (event) => {
+    isListening = false;
+    voiceBtn.classList.remove("listening");
+    const message =
+      event.error === "not-allowed"
+        ? "麥克風被拒絕，請允許權限"
+        : "語音辨識失敗，請再試一次";
+    updateStatus(message, true);
+  };
+
+  recognition.onend = () => {
+    if (!isListening) return;
+    isListening = false;
+    voiceBtn.classList.remove("listening");
+    if (statusEl.textContent === "聆聽中...") {
+      updateStatus("聆聽結束");
+    }
+  };
+}
+
+function parseVoiceInput(transcript, categoryList = []) {
+  const normalized = transcript.replace(/\s+/g, "");
+  const result = {
+    note: transcript,
+    amount: null,
+    type: "expense",
+    categoryId: null,
+    date: new Date().toISOString().split("T")[0],
+  };
+
+  const amountMatch = normalized.match(/([0-9]+(?:\.[0-9]+)?)/);
+  if (amountMatch) {
+    result.amount = Number(amountMatch[1]);
+  }
+
+  const incomeKeywords = [
+    "收入",
+    "賺",
+    "領",
+    "薪水",
+    "薪資",
+    "獎金",
+    "入帳",
+    "收到",
+    "匯入",
+    "進帳",
+  ];
+  const expenseKeywords = [
+    "支出",
+    "花",
+    "買",
+    "付",
+    "繳",
+    "花費",
+    "付款",
+    "刷",
+    "花了",
+    "付了",
+  ];
+
+  const hasIncome = incomeKeywords.some((k) => normalized.includes(k));
+  const hasExpense = expenseKeywords.some((k) => normalized.includes(k));
+  if (hasIncome && !hasExpense) {
+    result.type = "income";
+  } else if (hasExpense) {
+    result.type = "expense";
+  }
+
+  const date = new Date();
+  if (normalized.includes("前天")) {
+    date.setDate(date.getDate() - 2);
+  } else if (normalized.includes("昨天")) {
+    date.setDate(date.getDate() - 1);
+  } else if (normalized.includes("明天")) {
+    date.setDate(date.getDate() + 1);
+  }
+  result.date = date.toISOString().split("T")[0];
+
+  const keywordPattern = new RegExp(
+    [...incomeKeywords, ...expenseKeywords].join("|"),
+    "g"
+  );
+
+  const cleanedNote = normalized
+    .replace(/前天|昨天|今天|明天/g, "")
+    .replace(amountMatch ? amountMatch[1] : "", "")
+    .replace(/[元圓圆塊块錢钱]/g, "")
+    .replace(keywordPattern, "")
+    .trim();
+  if (cleanedNote) {
+    result.note = cleanedNote;
+  }
+
+  const normalizedNote = cleanedNote || normalized;
+  const matchedCategory = categoryList.find((cat) => {
+    const name = (cat.name || "").replace(/\s+/g, "");
+    return name && (normalizedNote.includes(name) || normalized.includes(name));
+  });
+  if (matchedCategory) {
+    result.categoryId = matchedCategory.id;
+  }
+
+  return result;
 }
 
 init();
