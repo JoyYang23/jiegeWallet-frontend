@@ -280,6 +280,13 @@ async function openBudgetModal() {
 
 // 新增交易彈窗
 async function openAddTransactionModal() {
+  try {
+    await loadCategories();
+  } catch (error) {
+    Swal.fire("錯誤", "無法取得最新的類別清單，請稍後再試", "error");
+    return;
+  }
+
   // 準備類別選項 HTML
   const categoryOptions = categories
     .map((cat) => `<option value="${cat.id}">${cat.name}</option>`)
@@ -525,6 +532,13 @@ async function createTransaction(payload) {
 
 // 編輯交易
 window.editTransaction = async function (id) {
+  try {
+    await loadCategories();
+  } catch (error) {
+    Swal.fire("錯誤", "無法取得最新的類別清單，請稍後再試", "error");
+    return;
+  }
+
   const txn = transactions.find((t) => t.id === id);
   if (!txn) return;
 
