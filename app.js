@@ -767,17 +767,29 @@ function setupVoiceInput({
   recognition.continuous = false;
 
   let isListening = false;
+  let manualStop = false;
 
   const updateStatus = (text, isError = false) => {
     statusEl.textContent = text;
     statusEl.classList.toggle("error", isError);
   };
 
+  const resetVoiceUI = () => {
+    voiceBtn.disabled = false;
+    voiceBtn.classList.remove("disabled", "listening");
+    updateStatus("點擊開始說話");
+  };
+
+  resetVoiceUI();
+
   voiceBtn.addEventListener("click", () => {
     if (isListening) {
+      manualStop = true;
       recognition.stop();
       return;
     }
+
+    manualStop = false;
 
     try {
       recognition.start();
@@ -837,12 +849,18 @@ function setupVoiceInput({
   };
 
   recognition.onend = () => {
-    if (!isListening) return;
-    isListening = false;
     voiceBtn.classList.remove("listening");
-    if (statusEl.textContent === "聆聽中...") {
+    if (!isListening && !manualStop) return;
+
+    isListening = false;
+
+    if (manualStop) {
+      updateStatus("已停止聆聽");
+    } else if (statusEl.textContent === "聆聽中...") {
       updateStatus("聆聽結束");
     }
+
+    manualStop = false;
   };
 }
 
