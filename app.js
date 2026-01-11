@@ -333,6 +333,10 @@ async function openAddTransactionModal() {
     didOpen: () => {
       setupVoiceInput({
         noteInputId: "swal-note",
+        amountInputId: "swal-amount",
+        dateInputId: "swal-date",
+        categorySelectId: "swal-category",
+        typeSelectId: "swal-type",
         buttonId: "swal-voice-btn",
         statusId: "swal-voice-status",
       });
@@ -589,6 +593,10 @@ window.editTransaction = async function (id) {
     didOpen: () => {
       setupVoiceInput({
         noteInputId: "swal-note",
+        amountInputId: "swal-amount",
+        dateInputId: "swal-date",
+        categorySelectId: "swal-category",
+        typeSelectId: "swal-type",
         buttonId: "swal-voice-btn",
         statusId: "swal-voice-status",
       });
@@ -718,8 +726,254 @@ async function init() {
   }
 }
 
-function setupVoiceInput({ noteInputId, buttonId, statusId }) {
+function formatDateInput(dateObj) {
+  const year = dateObj.getFullYear();
+  const month = String(dateObj.getMonth() + 1).padStart(2, "0");
+  const day = String(dateObj.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function addDays(baseDate, days) {
+  const date = new Date(baseDate);
+  date.setDate(date.getDate() + days);
+  return date;
+}
+
+function extractDateFromText(text) {
+  const now = new Date();
+  const dateKeywords = [
+    { keyword: "今天", offset: 0 },
+    { keyword: "昨日", offset: -1 },
+    { keyword: "昨天", offset: -1 },
+    { keyword: "前天", offset: -2 },
+    { keyword: "明天", offset: 1 },
+    { keyword: "後天", offset: 2 },
+  ];
+
+  let cleanedText = text;
+  for (const { keyword, offset } of dateKeywords) {
+    if (cleanedText.includes(keyword)) {
+      cleanedText = cleanedText.replace(keyword, "");
+      return {
+        date: formatDateInput(addDays(now, offset)),
+        cleanedText,
+      };
+    }
+  }
+
+  const fullDateRegex =
+    /(\d{4})[\/\-.年](\d{1,2})[\/\-.月](\d{1,2})日?/;
+  const fullMatch = cleanedText.match(fullDateRegex);
+  if (fullMatch) {
+    const [, year, month, day] = fullMatch;
+    cleanedText = cleanedText.replace(fullDateRegex, "");
+    return {
+      date: formatDateInput(new Date(Number(year), Number(month) - 1, Number(day))),
+      cleanedText,
+    };
+  }
+
+  const shortDateRegex = /(\d{1,2})[\/\-.月](\d{1,2})日?/;
+  const shortMatch = cleanedText.match(shortDateRegex);
+  if (shortMatch) {
+    const [, month, day] = shortMatch;
+    cleanedText = cleanedText.replace(shortDateRegex, "");
+    return {
+      date: formatDateInput(
+        new Date(now.getFullYear(), Number(month) - 1, Number(day))
+      ),
+      cleanedText,
+    };
+  }
+
+  return { date: null, cleanedText };
+}
+
+function extractAmountFromText(text) {
+  const amountRegex = /(\d+(?:\.\d+)?)(?:\s?(?:元|塊|块|圓|圆))?/;
+  const match = text.match(amountRegex);
+  if (!match) {
+    return { amount: null, cleanedText: text };
+  }
+
+  const cleanedText = text.replace(match[0], "");
+  return { amount: match[1], cleanedText };
+}
+
+function detectTypeFromText(text) {
+  const incomeKeywords = ["收入", "進帳", "入帳", "薪水", "薪資", "獎金", "領到"];
+  const expenseKeywords = ["支出", "花", "付", "買", "吃", "喝", "花費"];
+
+  if (incomeKeywords.some((keyword) => text.includes(keyword))) {
+    return "income";
+  }
+  if (expenseKeywords.some((keyword) => text.includes(keyword))) {
+    return "expense";
+  }
+  return null;
+}
+
+function matchCategoryId(text) {
+  if (!text) return null;
+  const matches = categories
+    .map((cat) => ({ id: cat.id, name: cat.name }))
+    .filter((cat) => text.includes(cat.name))
+    .sort((a, b) => b.name.length - a.name.length);
+  if (matches.length > 0) return matches[0].id;
+
+  const keywordMap = [
+    {
+      match: ["餐飲", "飲食", "食物", "美食", "餐食", "food"],
+      keywords: [
+        "吃",
+        "喝",
+        "買",
+        "早餐",
+        "午餐",
+        "晚餐",
+        "宵夜",
+        "便當",
+        "早餐店",
+        "咖啡",
+        "飲料",
+        "麵",
+        "飯",
+        "牛肉",
+        "豬肉",
+        "雞肉",
+        "魚",
+        "蛋",
+        "甜點",
+        "蛋糕",
+        "餅",
+        "麵包",
+        "水果",
+        "零食",
+        "冰",
+        "披薩",
+        "火鍋",
+        "炸雞",
+        "壽司",
+        "牛排",
+      ],
+    },
+    {
+      match: ["交通", "運輸", "通勤", "運費", "交通費", "transport"],
+      keywords: [
+        "捷運",
+        "公車",
+        "高鐵",
+        "火車",
+        "計程車",
+        "uber",
+        "停車",
+        "加油",
+        "油錢",
+        "車票",
+        "票",
+        "車資",
+      ],
+    },
+    {
+      match: ["購物", "消費", "衣物", "服飾", "shopping"],
+      keywords: [
+        "買",
+        "衣服",
+        "褲子",
+        "鞋",
+        "包",
+        "日用品",
+        "雜貨",
+        "網購",
+        "購物",
+        "超商",
+      ],
+    },
+    {
+      match: ["娛樂", "休閒", "玩樂", "entertainment"],
+      keywords: ["電影", "唱歌", "KTV", "遊戲", "展覽", "門票", "遊樂園"],
+    },
+    {
+      match: ["醫療", "健康", "醫藥", "medical"],
+      keywords: ["看病", "醫院", "診所", "藥", "掛號", "牙醫", "復健"],
+    },
+    {
+      match: ["教育", "學習", "課程", "education"],
+      keywords: ["課", "補習", "學費", "書", "教材", "考試"],
+    },
+    {
+      match: ["住宿", "房租", "租金", "housing"],
+      keywords: ["房租", "租金", "住宿", "旅館", "飯店", "民宿"],
+    },
+    {
+      match: ["水電", "帳單", "雜費", "utilities"],
+      keywords: ["水費", "電費", "瓦斯", "網路", "帳單", "電話費"],
+    },
+  ];
+
+  const normalizedText = text.toLowerCase();
+  for (const category of categories) {
+    const rule = keywordMap.find((item) =>
+      item.match.some((keyword) => category.name.includes(keyword))
+    );
+    if (!rule) continue;
+    if (
+      rule.keywords.some((keyword) =>
+        normalizedText.includes(keyword.toLowerCase())
+      )
+    ) {
+      return category.id;
+    }
+  }
+
+  return null;
+}
+
+function cleanNoteText(text) {
+  return text
+    .replace(/[，。！？!?,.]/g, " ")
+    .replace(/(花費|花了|花|買|吃|喝|付了|付)/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function parseVoiceTransaction(transcript) {
+  const { date, cleanedText: textAfterDate } = extractDateFromText(transcript);
+  const { amount, cleanedText: textAfterAmount } =
+    extractAmountFromText(textAfterDate);
+  const type = detectTypeFromText(transcript);
+  const note = cleanNoteText(textAfterAmount) || transcript.trim();
+  const categoryId = matchCategoryId(transcript) || matchCategoryId(note);
+
+  return {
+    date,
+    amount,
+    type,
+    note,
+    categoryId,
+  };
+}
+
+function setupVoiceInput({
+  noteInputId,
+  amountInputId,
+  dateInputId,
+  categorySelectId,
+  typeSelectId,
+  buttonId,
+  statusId,
+}) {
   const noteInput = document.getElementById(noteInputId);
+  const amountInput = amountInputId
+    ? document.getElementById(amountInputId)
+    : null;
+  const dateInput = dateInputId ? document.getElementById(dateInputId) : null;
+  const categorySelect = categorySelectId
+    ? document.getElementById(categorySelectId)
+    : null;
+  const typeSelect = typeSelectId
+    ? document.getElementById(typeSelectId)
+    : null;
   const voiceBtn = document.getElementById(buttonId);
   const statusEl = document.getElementById(statusId);
 
@@ -771,8 +1025,30 @@ function setupVoiceInput({ noteInputId, buttonId, statusId }) {
     voiceBtn.classList.remove("listening");
     const transcript = event.results[0][0].transcript.trim();
     if (transcript) {
-      noteInput.value = transcript;
+      const parsed = parseVoiceTransaction(transcript);
+      noteInput.value = parsed.note;
       noteInput.dispatchEvent(new Event("input", { bubbles: true }));
+
+      if (amountInput && parsed.amount) {
+        amountInput.value = parsed.amount;
+        amountInput.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+
+      if (dateInput && parsed.date) {
+        dateInput.value = parsed.date;
+        dateInput.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+
+      if (typeSelect && parsed.type) {
+        typeSelect.value = parsed.type;
+        typeSelect.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+
+      if (categorySelect && parsed.categoryId) {
+        categorySelect.value = parsed.categoryId;
+        categorySelect.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+
       updateStatus("已填入語音內容");
     } else {
       updateStatus("未聽到內容，請再試一次", true);
