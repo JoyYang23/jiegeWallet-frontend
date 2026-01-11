@@ -762,7 +762,7 @@ function extractDateFromText(text) {
   }
 
   const fullDateRegex =
-    /(\d{4})[\/\-.年](\d{1,2})[\/\-.月](\d{1,2})日?/;
+    /(\d{4})[\/\-.年](\d{1,2})[\/\-.月](\d{1,2})[日號]?/;
   const fullMatch = cleanedText.match(fullDateRegex);
   if (fullMatch) {
     const [, year, month, day] = fullMatch;
@@ -773,7 +773,7 @@ function extractDateFromText(text) {
     };
   }
 
-  const shortDateRegex = /(\d{1,2})[\/\-.月](\d{1,2})日?/;
+  const shortDateRegex = /(\d{1,2})[\/\-.月](\d{1,2})[日號]?/;
   const shortMatch = cleanedText.match(shortDateRegex);
   if (shortMatch) {
     const [, month, day] = shortMatch;
