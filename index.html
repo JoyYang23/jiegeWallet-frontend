@@ -106,7 +106,18 @@
 
             <!-- 交易紀錄 -->
             <div class="list-container">
-                <h3 id="transaction-list-title">11月收支</h3>
+                <div class="list-header">
+                    <h3 id="transaction-list-title">11月收支</h3>
+                    <div class="list-controls">
+                        <select id="transaction-sort" class="list-select" aria-label="排序">
+                            <option value="desc">日期遞減</option>
+                            <option value="asc">日期遞增</option>
+                        </select>
+                        <select id="transaction-filter" class="list-select" aria-label="分類篩選">
+                            <option value="all">全部分類</option>
+                        </select>
+                    </div>
+                </div>
                 <div id="transaction-list" class="transaction-list">
                     <!-- 動態載入 -->
                 </div>

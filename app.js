@@ -19,6 +19,8 @@ const btnAddTransaction = document.getElementById("btn-add-transaction");
 const btnManageCategory = document.getElementById("btn-manage-category");
 const transactionList = document.getElementById("transaction-list");
 const transactionListTitle = document.getElementById("transaction-list-title");
+const transactionSort = document.getElementById("transaction-sort");
+const transactionFilter = document.getElementById("transaction-filter");
 
 const totalIncome = document.getElementById("total-income");
 const totalExpense = document.getElementById("total-expense");
@@ -111,6 +113,7 @@ async function loadData() {
 async function loadCategories() {
   const data = await api("/api/categories");
   categories = data.data || [];
+  populateCategoryFilter();
 }
 
 async function loadTransactions() {
@@ -128,7 +131,8 @@ async function loadBudget() {
 
 // ===== Render Functions =====
 function renderTransactions() {
-  if (transactions.length === 0) {
+  const filteredTransactions = getFilteredTransactions();
+  if (filteredTransactions.length === 0) {
     transactionList.innerHTML = `<div style="text-align:center; padding:20px; color:#9ca095;">
       🍃 這裡空空的，還沒有紀錄喔！
     </div>`;
@@ -136,7 +140,7 @@ function renderTransactions() {
   }
 
   // 按 ID 排序（新的在前），如果 ID 相同才按日期
-  const sorted = [...transactions].sort((a, b) => {
+  const sorted = [...filteredTransactions].sort((a, b) => {
     // 嘗試將 ID 轉為數字比較（處理 txn-timestamp 格式）
     const getIdNum = (id) => {
       const match = id.match(/(\d+)$/);
@@ -148,6 +152,10 @@ function renderTransactions() {
     // ID 無法比較時，按日期排序
     return new Date(b.date) - new Date(a.date);
   });
+  const sortDirection = transactionSort ? transactionSort.value : "desc";
+  if (sortDirection === "asc") {
+    sorted.reverse();
+  }
 
   transactionList.innerHTML = sorted
     .map(
@@ -181,6 +189,32 @@ function renderTransactions() {
     `
     )
     .join("");
+}
+
+function getFilteredTransactions() {
+  if (!transactionFilter || transactionFilter.value === "all") {
+    return transactions;
+  }
+  return transactions.filter(
+    (txn) => String(txn.category_id) === transactionFilter.value
+  );
+}
+
+function populateCategoryFilter() {
+  if (!transactionFilter) return;
+  const currentValue = transactionFilter.value;
+  const options = [
+    '<option value="all">全部分類</option>',
+    ...categories.map(
+      (category) =>
+        `<option value="${category.id}">${category.name}</option>`
+    ),
+  ];
+  transactionFilter.innerHTML = options.join("");
+  const values = new Set(categories.map((category) => String(category.id)));
+  if (currentValue && (currentValue === "all" || values.has(currentValue))) {
+    transactionFilter.value = currentValue;
+  }
 }
 
 function updateSummary() {
@@ -711,6 +745,12 @@ logoutBtn.addEventListener("click", logout);
 btnAddTransaction.addEventListener("click", openAddTransactionModal);
 btnManageCategory.addEventListener("click", openManageCategoryModal);
 budgetSection.addEventListener("click", openBudgetModal);
+if (transactionSort) {
+  transactionSort.addEventListener("change", renderTransactions);
+}
+if (transactionFilter) {
+  transactionFilter.addEventListener("change", renderTransactions);
+}
 
 // ===== Initialize =====
 async function init() {
